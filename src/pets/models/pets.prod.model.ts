@@ -1,18 +1,17 @@
-import { Db, MongoClient, ObjectId } from 'mongodb';
+import { Collection, Document, ObjectId } from 'mongodb';
 import { AdoptionApplication, EmergencyDetails, PetProfile, User } from '../../types/type';
-import { connectToDatabase } from '../../config/database';
+import MongoDBClient from '../../config/database';
 import { Payload } from '../../users/models/users.prod.model';
 
-let database: Db;
-let Pets: any;
-let AdoptionsApplications: any;
-let EmergencyCare: any;
+const db = new MongoDBClient().init();
+let Pets: Collection<PetProfile>;
+let AdoptionsApplications: Collection<AdoptionApplication>;
+let EmergencyCare: Collection<EmergencyDetails>;
 (async () => {
-    database = await connectToDatabase('SHELTER');
     // Collection
-    Pets = database.collection('PETS');
-    AdoptionsApplications = database.collection('ADOPTIONS_APPLICATIONS');
-    EmergencyCare = database.collection('EMERGENCY_CARE');
+    Pets = (await db).getPetsCollection();
+    AdoptionsApplications = (await db).getAdoptionsApplicationsCollection();
+    EmergencyCare = (await db).getEmergencyCareCollection();
     // Create indexes after collection is initialized
     await createIndexes();
 })();
@@ -136,12 +135,12 @@ export const addAdoptionApplicationList = async (
     itemsPerPage: number = 50
 ) => {
     try {
-        // For regular users, only fetch their own applications
-        if (role === 'user') {
+        // For adopters, only fetch their own applications
+        if (role === 'adopter') {
             return await AdoptionsApplications.find({ userId }).toArray();
         }
         
-        // For admin/volunteer, fetch all applications with pagination
+        // For admin, fetch all applications with pagination
         const skip = (page - 1) * itemsPerPage;
         
         // Get total count for pagination info
@@ -181,7 +180,7 @@ export const editAdoptionApplication = async (id: string, data: AdoptionApplicat
 
 export const deleteItem = async (id: string) => {
     try {
-        const result = await Pets.deleteOne({ id: new ObjectId(id) });
+        const result = await Pets.deleteOne({ _id: new ObjectId(id) });
         if (result.deletedCount === 0) {
             throw new Error('Pet not found');
         }
@@ -215,14 +214,14 @@ export const emergencyCare = async (data: EmergencyDetails) => {
 
 export const emergencyCareList = async (payload: Payload, all?: string) => {
     try {
-        if (payload.role === 'user') {
-            console.log(payload._id)
+        if (payload.role === 'adopter' || payload.role === 'pet-owner') {
             return await EmergencyCare.find({ ownerId: payload._id }).toArray();
-        } else if (all === 'false') {
-            return await EmergencyCare.find({ ownerId: payload._id }).toArray();
-        } else {
-            return await EmergencyCare.find({}).toArray();
         }
+        if (payload.role === 'foster-caregiver' && all === 'false') {
+            return await EmergencyCare.find({ caregiverId: payload._id }).toArray();
+        }
+        // admin or explicit "all" request
+        return await EmergencyCare.find({}).toArray();
     } catch (err) {
         console.log('Error', err);
         throw err;
@@ -232,6 +231,32 @@ export const emergencyCareList = async (payload: Payload, all?: string) => {
 export const emergencyCareEdit = async (id: string, data: EmergencyDetails) => {
     try {
         const result = await EmergencyCare.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { ...data, updatedAt: new Date().toISOString() } }, { returnDocument: 'after' });
+        return result;
+    } catch (err) {
+        console.log('Error', err);
+        throw err;
+    }
+}
+
+export const getEmergencyCareById = async (id: string) => {
+    try {
+        return await EmergencyCare.findOne({ _id: new ObjectId(id) });
+    } catch (err) {
+        console.log('Error', err);
+        throw err;
+    }
+}
+
+export const assignEmergencyCareCaregiver = async (
+    id: string,
+    caregiverId: string
+) => {
+    try {
+        const result = await EmergencyCare.findOneAndUpdate(
+            { _id: new ObjectId(id) },
+            { $set: { caregiverId, updatedAt: new Date().toISOString() } },
+            { returnDocument: 'after' }
+        );
         return result;
     } catch (err) {
         console.log('Error', err);

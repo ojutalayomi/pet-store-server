@@ -1,4 +1,4 @@
-import { Db, MongoClient, ObjectId } from 'mongodb';
+import { Db, Collection, Document, ObjectId } from 'mongodb';
 import { jwtVerify } from 'jose';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
@@ -7,23 +7,26 @@ import { SignJWT } from "jose";
 import { UAParser } from 'ua-parser-js';
 import { Request } from 'express';
 import { callSuccess, emailChangedNotification, sendCodeByEmail, sendInviteEmail, sendScheduleVisitEmail } from '../../utils/email';
-import { connectToDatabase } from '../../config/database';
+import MongoDBClient from '../../config/database';
 
+type _ = { userId: string, petId: string };
+
+const db = new MongoDBClient().init();
 // Collections
-let database: Db;
-let Users: any;
-let Tokens: any;
-let SignInTokens: any;
-let Confirmations: any;
-let Invites: any;
+let Users: Collection<User>;
+let Tokens: Collection<Document>;
+let PetInteractions: Collection<Document>;
+let SignInTokens: Collection<Document>;
+let Confirmations: Collection<Document>;
+let Invites: Collection<Invite>;
 (async () => {
-    database = await connectToDatabase('SHELTER');
     // Collection
-    Users = database.collection('USERS');
-    Tokens = database.collection('TOKENS');
-    SignInTokens = database.collection('SIGN_IN_TOKENS');
-    Confirmations = database.collection('CONFIRMATIONS');
-    Invites = database.collection('INVITES');
+    Users = (await db).getUsersCollection();
+    Tokens = (await db).getTokensCollection();
+    PetInteractions = (await db).getPetInteractionsCollection();
+    SignInTokens = (await db).getSignInTokensCollection();
+    Confirmations = (await db).getConfirmationsCollection();
+    Invites = (await db).getInvitesCollection();
     // Create indexes after collection is initialized
     await createIndexes();
 })();
@@ -37,7 +40,7 @@ export function secretKey(){
 export interface Payload {
     _id: string,
     exp: number,
-    role: string
+    role: 'adopter' | 'pet-owner' | 'foster-caregiver' | 'admin'
 }
 
 // Helper functions remain the same
@@ -63,7 +66,7 @@ export const getUser = async (email: string, password: string, headers: any) => 
         if (!passwordMatch) {
             throw Error('Invalid password');
         }
-        delete user.password;
+        delete (user as Partial<User>).password;
 
         const secret = new TextEncoder().encode(process.env.JWT_SECRET);
         const token = await new SignJWT({ _id: user._id.toString(), role: user.role })
@@ -96,11 +99,28 @@ export const listUsers = async () => {
     }
 }
 
+export const listPetInteractions = async (userId: string) => {
+    try {
+        const petInteractionsList = await PetInteractions.find({ userId: userId }).filter({ petId: 1, _id: 0 }).toArray()
+        if (petInteractionsList) {
+            // Extract petIds from petInteractionsList and use $in properly in a $match stage
+            const petIds = petInteractionsList.map((interaction: any) => interaction.petId);
+            const pets = await (await db).getPetsCollection()
+                .find({ _id: { $in: petIds } })
+                .toArray();
+            return pets;
+        }
+        throw Error("You don't have pet interactions");
+    } catch (err) {
+        console.log('Error', err);
+    }
+}
+
 export const findUser = async (id: string): Promise<Partial<User>> => {
     try {
         const user = await Users.findOne({ _id: new ObjectId(id) });
         if (!user) throw new Error('User not found');
-        delete user.password;
+        delete (user as Partial<User>).password;
         return user;
     } catch (err) {
         throw err;
@@ -142,7 +162,7 @@ export const editUser = async (id: string, req: Request) => {
             { returnDocument: 'after' }
         );
 
-        delete updatedUser?.password;
+        delete (updatedUser as Partial<User>)?.password;
         return updatedUser;
     } catch (err) {
         console.log('Error', err);
@@ -426,7 +446,7 @@ export const scheduleVisit = async (
         };
 
         // Insert into visits collection
-        const result = await database.collection('VISITS').insertOne(visit);
+        const result = await (await db).getVisitsCollection().insertOne(visit);
 
         await sendScheduleVisitEmail(user.firstName, user.lastName, user.email, visitDateAndTime, notes, 'pending');
 
@@ -442,7 +462,7 @@ export const scheduleVisit = async (
 
 export const getVisit = async (visitId: string) => {
     try {
-        const visit = await database.collection('VISITS').findOne({
+        const visit = await (await db).getVisitsCollection().findOne({
             _id: new ObjectId(visitId)
         });
         
@@ -461,7 +481,7 @@ export const updateVisitStatus = async (
     status: 'approved' | 'rejected' | 'cancelled' | 'completed'
 ) => {
     try {
-        const result = await database.collection('VISITS').updateOne(
+        const result = await (await db).getVisitsCollection().updateOne(
             { _id: new ObjectId(visitId) },
             { 
                 $set: {
@@ -484,9 +504,9 @@ export const updateVisitStatus = async (
 export const listVisits = async (userId: string) => {
     try {
         if (!userId) {
-            return await database.collection('VISITS').find({}).toArray();
+                return await (await db).getVisitsCollection().find({}).toArray();
         }
-        return await database.collection('VISITS').find({
+        return await (await db).getVisitsCollection().find({
             userId: new ObjectId(userId)
         }).toArray();
     } catch (err) {

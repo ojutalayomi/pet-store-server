@@ -10,10 +10,13 @@ export function formatNo(no: number) {
     }
 }
 
-export function timeFormatter(Time: string) {
-  const date = moment(Time, 'MM/DD/YYYY, h:mm:ss A');
-  const formattedDate = date.format('MMM D, YYYY h:mm:ss A');
-  return formattedDate;
+export function timeFormatter(Time?: string) {
+	if (!Time) {
+		return moment().format('MMM D, YYYY h:mm:ss A');
+	}
+	const date = moment(Time, 'MM/DD/YYYY, h:mm:ss A');
+	const formattedDate = date.format('MMM D, YYYY h:mm:ss A');
+	return formattedDate;
 }
 
 export const Time = (params: string | Date ) => {

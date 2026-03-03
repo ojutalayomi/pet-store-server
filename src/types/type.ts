@@ -30,7 +30,7 @@ export interface User {
         zipCode: string;
         country: string;
     };
-    role: 'admin' | 'user' | 'volunteer';
+    role: 'adopter' | 'pet-owner' | 'foster-caregiver' | 'admin';
     status: 'active' | 'inactive' | 'suspended';
     preferences: {
         notifications: boolean;
@@ -59,7 +59,7 @@ export interface User {
 export interface Invite {
     token: string;
     email: string;
-    role: 'admin' | 'volunteer';
+    role: 'admin' | 'foster-caregiver';
     createdAt: string;
     expiresAt: string;
 }
@@ -97,4 +97,5 @@ export interface EmergencyDetails {
     ownerName: string
     phone: string
     description: string
+    caregiverId?: string
 }

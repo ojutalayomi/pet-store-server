@@ -1,6 +1,7 @@
 import express from "express";
 import {
   listUsers,
+  listPetInteractions,
   getUser,
   editUser,
   addUser,
@@ -62,7 +63,7 @@ const router = express.Router();
  *               type: string
  *         role:
  *           type: string
- *           enum: [admin, user, volunteer]
+ *           enum: [admin, adopter, pet-owner, foster-caregiver]
  *         status:
  *           type: string
  *           enum: [active, inactive, suspended]
@@ -136,6 +137,8 @@ const router = express.Router();
  */
 router.get("/", listUsers);
 
+router.get("/petInteractions/:userId", listPetInteractions);
+
 /**
  * @swagger
  * /users/signin:
@@ -198,7 +201,7 @@ router.post("/signin", getUser);
  *              state: "CA"
  *              zipCode: "12345"
  *              country: "USA"
- *            role: "user"
+ *            role: "adopter"
  *            status: "active"
  *            preferences:
  *              notifications: true
@@ -328,7 +331,7 @@ router.get("/get-visit/:visitId", getVisit);
  *              state: "CA"
  *              zipCode: "12345"
  *              country: "USA"
- *            role: "user"
+ *            role: "adopter"
  *            status: "active"
  *            preferences:
  *              notifications: true

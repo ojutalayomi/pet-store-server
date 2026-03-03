@@ -21,7 +21,7 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
 export const user = async (req: Request, res: Response): Promise<void> => {
     try {
         // Step 1: Extract the token from cookies
-        const cookie = req.cookies.pt_session;
+        const cookie = req.cookies.pt_session || (req.headers?.['X-Secondary-Authorization'] as string)?.split(" ")[1];
         if (!cookie) {
             res.status(401).json({ message: "Not logged in. Session cookie missing." });
         }
@@ -57,11 +57,25 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
     }
 };
 
+export const listPetInteractions = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const resp = await Models.listPetInteractions(req.params.userId);
+        res.status(200).json(resp);
+    } catch (err) {
+        if (err instanceof Error && err.message === "You don't have pet interactions") {
+            res.status(404).json(err)
+            return
+        };
+        res.status(500).json(err);
+    }
+};
+
 export const editUser = async (req: Request, res: Response): Promise<void> => {
     try {
-        const cookie = req.cookies.pt_session;
+        const cookie = req.cookies.pt_session || (req.headers?.['X-Secondary-Authorization'] as string)?.split(" ")[1];
         if (!cookie) {
             res.status(401).json({ message: "Not logged in. Session cookie missing." });
+            return;
         }
 
         // Decode and clean the cookie value
@@ -71,13 +85,20 @@ export const editUser = async (req: Request, res: Response): Promise<void> => {
         const payload = await Models.verifyToken(decodedCookie) as unknown as Models.Payload;
         if (!payload) {
             res.status(401).json({ message: "Invalid token. Please log in." });
+            return;
         }
         
         const resp = await Models.editUser((req.query.id ? req.query.id as string : payload._id), req);
         
-        if (resp) res.status(200).json(resp);
+        if (resp) {
+            res.status(200).json(resp);
+            return;
+        }
     } catch (err) {
-        if (err instanceof Error && err.message === 'User not found') res.status(404).json(err);
+        if (err instanceof Error && err.message === 'User not found') {
+            res.status(404).json(err)
+            return
+        };
     }
 };
 
@@ -115,7 +136,8 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
 
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
     try {
-        const cookie = decodeURIComponent(req.cookies.pt_session ? req.cookies.pt_session : '').replace(/"/g, '');
+        const authHeader2 = (req.headers?.['X-Secondary-Authorization'] as string)?.split(" ")[1]
+        const cookie = decodeURIComponent(req.cookies.pt_session ? req.cookies.pt_session : authHeader2 ? authHeader2 : '').replace(/"/g, '');
         // if (!cookies) return res.status(405).end(`Not Allowed`);
         const payload = await Models.verifyToken(cookie as unknown as string) as unknown as Models.Payload;
         // console.log(payload)
@@ -245,7 +267,7 @@ export const handleEmailConfirmationRoute = async (req: Request, res: Response):
 
 export const scheduleVisit = async (req: Request, res: Response): Promise<void> => {
     try {
-        const cookie = req.cookies.pt_session;
+        const cookie = req.cookies.pt_session || (req.headers?.['X-Secondary-Authorization'] as string)?.split(" ")[1];
         if (!cookie) {
             res.status(401).json({ message: "Not logged in. Session cookie missing." });
             return;
