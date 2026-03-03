@@ -1,4 +1,4 @@
-import { Db, MongoClient, ServerApiVersion } from 'mongodb';
+import { Db, MongoClient, MongoClientOptions, ServerApiVersion } from 'mongodb';
 import dotenv from 'dotenv';
 import { AdoptionApplication, EmergencyDetails, Invite, PetProfile, User } from '../types/type';
 
@@ -11,7 +11,7 @@ const uri = process.env.MONGODB_URI;
 let client: MongoClient | null = null;
 let clientPromise: Promise<MongoClient> | null = null;
 
-const options = {
+const options: MongoClientOptions = {
   serverApi: {
     version: ServerApiVersion.v1,
     deprecationErrors: true,

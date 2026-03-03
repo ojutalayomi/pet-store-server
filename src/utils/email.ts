@@ -37,7 +37,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Verify connection configuration
-transporter.verify(function(error, success) {
+transporter.verify(function(error: any, success: any) {
     if (error) {
         console.log('SMTP connection error:', error);
     } else {
@@ -61,7 +61,7 @@ export async function sendInviteEmail( name: string, email: string, role: Invite
         }),        
     };
     
-    transporter.sendMail(mailOptions, (err, info) => {
+    transporter.sendMail(mailOptions, (err: any, info: any) => {
         if (err) {
             console.error('Error sending email:', err);
             // return res.status(401).json({ error: 'Error sending email' });
@@ -79,7 +79,7 @@ export async function sendInviteExpiredEmail( name: string, email: string, expir
         html: inviteExpiredTemplate({ name: name, expiresAt: timeFormatter(Time(expiresAt)) }),
     };
 
-    transporter.sendMail(mailOptions, (err, info) => {
+    transporter.sendMail(mailOptions, (err: any, info: any) => {
         if (err) {
             console.error('Error sending email:', err);
             // return res.status(401).json({ error: 'Error sending email' });
@@ -119,7 +119,7 @@ export async function callSuccess( firstname: string, lastname: string, email: s
     };
   
     // Send the confirmation email
-    transporter.sendMail(mailOptions, (err, info) => {
+    transporter.sendMail(mailOptions, (err: any, info: any) => {
         if (err) {
             console.error('Error sending email:', err);
             // return res.status(401).json({ error: 'Error sending email' });
@@ -150,7 +150,7 @@ export async function sendCodeByEmail( firstname: string, lastname: string, emai
     };
   
     // Send the confirmation email
-    transporter.sendMail(mailOptions, (err, info) => {
+    transporter.sendMail(mailOptions, (err: any, info: any) => {
         if (err) {
             console.error('Error sending email:', err);
             // return res.status(401).json({ error: 'Error sending email' });
